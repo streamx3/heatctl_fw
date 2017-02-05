@@ -3,8 +3,9 @@
 #include <stdarg.h>
 #include <avr/io.h>
 #include <util/delay.h>
+#include <ds18b20.h>
 
-void initUSART(void) {
+void initUSART(void){
     #define BAUD 9600
     #include <util/setbaud.h> 
     UBRR0H = UBRRH_VALUE;                             /* defined in setbaud.h */
@@ -21,13 +22,11 @@ void initUSART(void) {
 
 char usartReadChar(){
     while(! (UCSR0A & (1 << RXC0))){}
-
     return UDR0;
 }
 
 void usartWriteChar(char data){
     while(! (UCSR0A & (1 << UDRE0))){}
-
     UDR0 = data;
 }
 
@@ -43,7 +42,7 @@ void print(uint8_t *data, uint8_t size){
 }
 
 void printu(const char* format, ...){
-#define ___BUFSZ 256
+#define ___BUFSZ 0xFF
     static char buf[___BUFSZ];
     int16_t sz;
     va_list argptr;
@@ -56,34 +55,34 @@ void printu(const char* format, ...){
         return;
     }
     va_end(argptr);
-    return print((uint8_t*)buf,(uint16_t)sz);
+    return print((uint8_t*)buf,(uint8_t)sz);
 #undef __BUFSZ
 }
 
-int temp;
 
 int main(){
+    uint16_t temp;
+    uint8_t retval;
     DDRB   = 0xff;
 
-    char data;
     initUSART();
 
-        printu("Init...\r\n");
-        _delay_ms(1000);
+    printu("Init...\r\n");
+    _delay_ms(1000);
     while(1){
-
-                //Start conversion (without ROM matching)
-        ds18b20convert( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL );
+        _delay_ms(2000);
+        //Start conversion (without ROM matching)
+        retval = ds18b20convert( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL );
+        printu("convert = %d;\r\n", retval);
 
         //Delay (sensor needs time to perform conversion)
         _delay_ms( 1000 );
 
         //Read temperature (without ROM matching)
-        ds18b20read( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL, &temp );
-      // data = usartReadChar();
-// actually, never reach
+        retval = ds18b20read( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL, &temp );
+        printu("read = %d;\r\n", retval);
+        printu("temp = %d.%d;\r\n", temp/16, temp%16);
 
-      // PORTB  = (1 << 0);
     }
 
     return 0;
