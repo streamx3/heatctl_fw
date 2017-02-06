@@ -59,30 +59,57 @@ void printu(const char* format, ...){
 #undef __BUFSZ
 }
 
+void printrom(uint8_t* rom){
+    printu("%x-%x-%x-%x-%x-%x-%x-%x;\r\n", rom[0], rom[1], rom[2], rom[3], rom[4], rom[5], rom[6], rom[7]);
+}
 
 int main(){
-    uint16_t temp;
+    uint16_t temp1, temp2;
     uint8_t retval;
+
+    // If you are reading this, you should write here your 64-bit constants
+    // instead of mine constants, while they are meant to be unique.
+    uint8_t rom[2][8] = {
+        {0x28,0x43,0x8f,0x33,0x8,0x0,0x0,0x73},
+        {0x28,0xd7,0x78,0x33,0x8,0x0,0x0,0xe9}
+    };
+    uint8_t troms[2][8] = {{0},{0}};
     DDRB   = 0xff;
 
     initUSART();
 
-    printu("Init...\r\n");
-    _delay_ms(1000);
-    while(1){
-        _delay_ms(2000);
-        //Start conversion (without ROM matching)
-        retval = ds18b20convert( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL );
-        printu("convert = %d;\r\n", retval);
+    printu("Init...\r\nKnown roms:\r\n");
+    printrom(rom[0]);
+    printrom(rom[1]);
+    
 
-        //Delay (sensor needs time to perform conversion)
-        _delay_ms( 1000 );
+    // retval = ds18b20convert( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL );
+    // printu("convert = %d;\r\n", retval);
+    // _delay_ms(2000);
+
+    // retval = ds18b20rom( &PORTB, &DDRB, &PINB, ( 1 << 0 ), troms[0]);
+    // printu("readrom = %d;\r\n", retval);
+    // printrom(troms[0]);
+    while(1){
+        //Start conversion (without ROM matching)
+        retval = ds18b20convert( &PORTB, &DDRB, &PINB, ( 1 << 0 ), rom[0] );
+        // printu("convert1 = %d;\r\n", retval);
+        // Delay (sensor needs time to perform conversion)
+        _delay_ms(1000);
 
         //Read temperature (without ROM matching)
-        retval = ds18b20read( &PORTB, &DDRB, &PINB, ( 1 << 0 ), NULL, &temp );
-        printu("read = %d;\r\n", retval);
-        printu("temp = %d.%d;\r\n", temp/16, temp%16);
+        retval = ds18b20read( &PORTB, &DDRB, &PINB, ( 1 << 0 ), rom[0], &temp1 );
+        // printu("read1 = %d;\r\n", retval);
+        _delay_ms(1000);
 
+        retval = ds18b20convert( &PORTB, &DDRB, &PINB, ( 1 << 0 ), rom[1] );
+        // printu("convert2 = %d;\r\n", retval);
+        _delay_ms(1000);
+
+        retval = ds18b20read( &PORTB, &DDRB, &PINB, ( 1 << 0 ), rom[1], &temp2 );
+        // printu("read2 = %d;\r\n", retval);
+        printu("temp1 = %d.%d; temp2 = %d.%d;\r\n", temp1/16, temp1%16, temp2/16, temp2%16);
+        _delay_ms(1000);
     }
 
     return 0;
