@@ -25,4 +25,4 @@ clean:
 	make -C avr-ds18b20 clean
 	-rm -f $(PROJECT).* *.o
 
-all: clean $(PROJECT).hex program
+america_great_again: clean $(PROJECT).hex program

@@ -4,6 +4,7 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h> // cli()
+#include <stdio.h> // vsnprintf
 #include <ds18b20.h>
 
 void initUSART(void){
@@ -71,20 +72,18 @@ void printrom(uint8_t* rom){
 #define ONEWIRE_COMMAND_SEARCH_NORMAL 0xF0
 #define ONEWIRE_COMMAND_SEARCH_ALERT  0xEC
 
-union u_rom
+typedef union
 {
     volatile uint64_t i64;
     volatile uint8_t i8[8];
-};
+} u_rom;
 
-struct onewireMap
+typedef struct
 {
-    union u_rom rom;
-    union u_rom cch; // cache
-    union u_rom bmk; // bookmark
-};
-
-typedef struct onewireMap onewireMap;
+    u_rom rom;
+    u_rom cch; // cache
+    u_rom bmk; // bookmark
+} onewireMap;
 
 uint8_t onewireSearchInit( onewireMap *map )
 {
@@ -109,14 +108,18 @@ uint8_t onewireSearch(
 
     uint64_t cmask; // cache mask
     uint8_t sreg;
+    uint8_t retval;
     uint8_t b; // temporal storage for next bit
     uint8_t rsp = 0; // next bit to select in address
-    volatile uint64_t i = 1;
+    volatile uint64_t i;
+
+    retval = ONEWIRE_ERROR_OK;
 
     sreg = SREG;
     // Communication check
     if ( onewireInit( port, direction, portin, mask ) == ONEWIRE_ERROR_COMM )
-        return DS18B20_ERROR_COMM;
+        retval = DS18B20_ERROR_COMM;
+        goto onewireSearch_return;
 
     onewireWrite( port, direction, portin, mask,
         (alert) ? ONEWIRE_COMMAND_SEARCH_ALERT : ONEWIRE_COMMAND_SEARCH_NORMAL );
@@ -125,7 +128,7 @@ uint8_t onewireSearch(
     cli();
 
     map->rom.i64 = 0;
-    for( ; i!= 0; i <<= 1 )
+    for(i = 1 ; i!= 0; i <<= 1 )
     {
         rsp = 0;
         b = 0;
@@ -183,7 +186,8 @@ uint8_t onewireSearch(
             case(4):
                 printu("case 4\r\n");
                 // 4 is for no devices left in selected multiplicity
-                return ONEWIRE_ERROR_ENDSEARCH;
+                retval = ONEWIRE_ERROR_ENDSEARCH;
+                goto onewireSearch_return;
         }
 
 
@@ -216,7 +220,7 @@ onewireSearch_wr_rsp:
 
 onewireSearch_return:
     SREG = sreg;
-    return ONEWIRE_ERROR_OK;
+    return retval;
 }
 
 onewireMap map1;
@@ -227,9 +231,10 @@ int main(){
 
     // If you are reading this, you should write here your 64-bit constants
     // instead of mine constants, while they are meant to be unique.
-    uint8_t rom[2][8] = {
-        {0x28,0x43,0x8f,0x33,0x8,0x0,0x0,0x73},
-        {0x28,0xd7,0x78,0x33,0x8,0x0,0x0,0xe9}
+    uint8_t rom[3][8] = {
+        {0x28,0x43,0x8f,0x33,0x08,0x00,0x00,0x73},
+        {0x28,0xd7,0x78,0x33,0x08,0x00,0x00,0xe9},
+        {0x28,0x5e,0x30,0xf6,0x02,0x00,0x00,0x90}
     };
     uint8_t troms[2][8] = {{0},{0}};
     DDRB   = 0xff;
